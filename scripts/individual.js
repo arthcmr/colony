@@ -39,7 +39,7 @@ var Individual = paper.Base.extend({
 		this.max_speed = this.speed + (this.strength);		//maximum speed
 		this.max_force = this.force + (this.strength);		//maximum force
 
-		this.max_age = 2 * Math.random();									//max_age
+		this.max_age = 1 * Math.random();									//max_age
 
 		this.antibodies = false;							//has antibodies?
 		this.disease = false;								//has disease?
@@ -333,10 +333,17 @@ var Individual = paper.Base.extend({
 	},
 
 	die: function() {
-
+		console.log('die '+this.index);
 		this.alive = false;
-		console.log("DEAD " + this.index);
+		this.clear();
+	},
 
+	clear: function() {
+		this.body.opacity = 0;
+		this.sightRing.opacity = 0;
+		this.points = [];
+		this.calculateTail();
+		this.updateItems();
 	},
 
 	draw: function() {
