@@ -27,7 +27,7 @@ var Individual = paper.Base.extend({
 		this.color = '#0066cc'; 							//initial color of SIM
 		this.oldColor = this._shadeColor(this.color, -0.3);
 		this.strength = 0.25;		 		//initial strength
-		this.number_flagellum = _.random(1,3);		  					//default speed
+		this.number_flagellum = _.random(1,2);		  					//default speed
 
 		this.speed = 1 + 10 * ((this.number_flagellum < 5) ? this.number_flagellum : 0); //default speed
 		if(this.number_flagellum === 0) {
@@ -39,16 +39,18 @@ var Individual = paper.Base.extend({
 		this.max_speed = this.speed + (this.strength);		//maximum speed
 		this.max_force = this.force + (this.strength);		//maximum force
 
-		this.max_age = 1 * Math.random();									//max_age
+		this.max_age = 1;									//max_age
 
-		this.antibodies = false;							//has antibodies?
-		this.disease = false;								//has disease?
-		this.lifespan = 100;								//how long does it live? (in # of movements)
-		this.memory_size = 3;								//size of memory
-		this.intoxication = 0.8;							//probability of being intoxicated
+		this.antibodies = false;								//has antibodies?
+		this.disease = false;										//has disease?
+		this.lifespan = 100;										//how long does it live? (in # of movements)
+		this.memory_size = 3;										//size of memory
+		this.intoxication = 0.8;								//probability of being intoxicated
 		this.poison_lethality = 0.8;						//probability of dying from poison
 		this.poison_lifespan = 0.1;							//reduced lifespan after getting poisoned
 		this.cost_per_movement = 3;							//energy cost per movement
+		this.fecundity = 0.001;										//energy cost per movement
+		this.initial_energy = 0.15;											//amount of energy
 
 		//state
 
@@ -58,10 +60,12 @@ var Individual = paper.Base.extend({
 		this.vector = new paper.Point(randomx, randomy); 			//negative and positive vector between -1 and 1	
 		this.acceleration = new paper.Point();						//current acceleration
 		this.hungry = 0;											//is hungry now?
-		this.energy = 0.05;											//amount of energy
+		this.energy = this.initial_energy;											//amount of energy
 		this.age = 0;												//age
 		this.poisoned = false;										//is poisoned now?
 		this.reproducing = false;									//is reproducing now?
+		this.mate = null;									//is reproducing now?
+		this.energy_reproduction = 0;
 		this.current_speed = 0; 									//current speed
 		this.memory = [];											//position memory
 		this.current_radius = 0;									//current size
@@ -111,11 +115,15 @@ var Individual = paper.Base.extend({
 		this.calculateDistances(individuals);
 		var separation = this.separate(individuals).multiply(2);
 
-		if(this.energy > .10)
-		this.avoid(individuals, separation, new paper.Point(600,400));
-		else
-		this.flock(individuals, separation);
-		
+		//	this.avoid(individuals, separation, new paper.Point(600,400));
+		if(this.reproducing && !_.isNull(this.mate)) {
+			//can overlap
+			this.go_to(individuals, separation, this.mate.position, true);
+			this.end_reproduction();
+		}
+		else {
+			this.flock(individuals, separation);
+		}
 
 		this.borders();
 		this.update();
@@ -132,10 +140,12 @@ var Individual = paper.Base.extend({
 		this.acceleration = this.acceleration.add(cohesion);
 	},
 
-	go_to: function(individuals, separation, target) {
-
+	go_to: function(individuals, separation, target, overlap) {
 		this.acceleration = this.arrive(target);
-		this.acceleration = this.acceleration.add(separation);
+		//if overlap == true, then sepatation is not needed
+		if(overlap !== true) {
+			this.acceleration = this.acceleration.add(separation);
+		}
 	},
 
 	avoid: function(individuals, separation, target) {
@@ -159,6 +169,11 @@ var Individual = paper.Base.extend({
 		for (var i = 0, l = individuals.length; i < l; i++) {
 			var distance = this.distances[i];
 			if (distance > 0 && distance < desiredSeparation) {
+
+				//probability of reproducing
+				if(Math.random() < this.fecundity) {
+					this.start_reproduction(individuals[i]);
+				}
 				// Calculate vector pointing away from neighbor
 				var delta = this.position.subtract(individuals[i].position);
 				delta.length = 1 / distance;
@@ -214,8 +229,14 @@ var Individual = paper.Base.extend({
 		for (var i = 0, l = individuals.length; i < l; i++) {
 			var distance = this.distances[i];
 			if (distance > 0 && distance < neighborDist) {
-				sum = sum.add(individuals[i].position); // Add location
-				count++;
+
+				//make sure they are not attracted to the ones already reproducing
+				//reproducing ones are not part of the flock
+				if(!individuals[i].reproducing) {
+					sum = sum.add(individuals[i].position); // Add location
+					count++;
+				}
+
 			}
 		}
 		if (count > 0) {
@@ -333,9 +354,60 @@ var Individual = paper.Base.extend({
 	},
 
 	die: function() {
+
+		return;
+
 		console.log('die '+this.index);
 		this.alive = false;
 		this.clear();
+	},
+
+	start_reproduction: function(individual) {
+
+		if(this.reproducing === true
+			|| individual.reproducing === true) {
+			return;
+		}
+
+		console.log("reproducing "+this.index+" and "+individual.index);
+
+		this.reproducing = true;
+		this.mate = individual;
+		this.energy_reproduction = this.energy;
+
+		individual.reproducing = true;
+		individual.mate = this;
+		individual.energy_reproduction = individual.energy;
+
+		this.acceleration = this.mate.acceleration.multiply(-1);
+
+	},
+
+	end_reproduction: function() {
+
+		//cant end what hasnt even started
+		if(this.reproducing === false || _.isNull(this.mate)) {
+			return;
+		}
+
+		//check if enough energy is available
+		var min_energy = Math.min(this.initial_energy, this.mate.initial_energy) / 10;
+		var combined_energy = (this.energy_reproduction - this.energy) +
+			 (this.mate.energy_reproduction - this.mate.energy);
+		if(combined_energy < min_energy) {
+			//not enough time
+			return;
+		}
+
+		console.log("BORN!!!!");
+
+		this._setPosition(this.mate.position);
+		this.acceleration = this.mate.acceleration;
+		this.vector = this.mate.vector;
+
+		this.reproducing = false;
+		this.mate.reproducing = false;
+		this.mate = null;
 	},
 
 	clear: function() {
@@ -464,7 +536,7 @@ var Individual = paper.Base.extend({
 		this.energy -= 0.00005;
 
 		if(this.energy < 0.01) {
-			//this.die();
+			this.die();
 		}
 		else if(this.energy < 0.08) {
 			this.hungry = 2;
