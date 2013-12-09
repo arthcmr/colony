@@ -11,6 +11,10 @@ var Stage = paper.Base.extend({
 
 	initialize: function(element) {
 
+		var stage = "<canvas id='"+element+"' resize></canvas>";
+
+		$("#canvas_wrapper").append(stage);
+
 		var element_jq = $('#'+element);
 		var canvas = element_jq[0];
 		paper.setup(canvas);
