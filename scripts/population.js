@@ -17,7 +17,7 @@
 	initialize: function(options) {
 
 	 	var settings = {
-			initial_number: 10
+			initial_number: 25
 		};
 		_.extend(settings, options);
 

@@ -60,7 +60,7 @@ var Individual = paper.Base.extend({
 		this.vector = new paper.Point(randomx, randomy); 			//negative and positive vector between -1 and 1	
 		this.acceleration = new paper.Point();						//current acceleration
 		this.hungry = 0;											//is hungry now?
-		this.energy = this.initial_energy;											//amount of energy
+		this.energy = (this.initial_energy/2) * _.random(1,5);											//amount of energy
 		this.age = 0;												//age
 		this.poisoned = false;										//is poisoned now?
 		this.reproducing = false;									//is reproducing now?
@@ -369,8 +369,6 @@ var Individual = paper.Base.extend({
 			return;
 		}
 
-		console.log("reproducing "+this.index+" and "+individual.index);
-
 		this.reproducing = true;
 		this.mate = individual;
 		this.energy_reproduction = this.energy;
@@ -380,6 +378,9 @@ var Individual = paper.Base.extend({
 		individual.energy_reproduction = individual.energy;
 
 		this.acceleration = this.mate.acceleration.multiply(-1);
+		this.acceleration.length = 0.9 * this.acceleration.length;
+
+		console.log("REPRODUCING!!!!");
 
 	},
 
@@ -407,7 +408,7 @@ var Individual = paper.Base.extend({
 
 		this.reproducing = false;
 		this.mate.reproducing = false;
-		this.mate = null;
+		//this.mate = null;
 	},
 
 	clear: function() {
