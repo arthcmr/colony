@@ -13,7 +13,7 @@ var Colony = paper.Base.extend({
 		population: null,
 		walls: null,
 		fire_spots: null,
-		foods: null,
+		meals: null,
 		diseases: null,
 		antibodies: null,
 		poisons: null
@@ -37,6 +37,9 @@ var Colony = paper.Base.extend({
 
 		//create population
 		this.objects.population = new Population();
+
+		//create meals collection
+		this.objects.meals = new Meals();
 
 		console.log("================ RUNNING ================");
 

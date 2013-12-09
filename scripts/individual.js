@@ -9,71 +9,93 @@ var Individual = paper.Base.extend({
 	 * Initialization
 	 */
 
-	initialize: function(index, options) {;
+	initialize: function(options, index) {;
 		/*
 		 * Default attributes
 		 */
-
 	 	//innate
+	 	if(_.isNumber(index)) {
+	 		this.index = index;
+	 		this.generateProperties();
+	 		this.generateStateProperties();
+	 	}
+	 	else if(!_.isUndefined(index)) {
+	 		throw "Index is not a number!";
+	 		return;
+	 	}
 
-	 	this.index = index;
+	 	var _this = this;
+		//if other parameters are provided, apply properties
+		if(!_.isUndefined(options)) {
+			_.each(options, function(value, key) {
+				_this[key] = value;
+			});
+		}
 
-	 	this.alive = true;
+		//draw individual
+		this.draw();
+
+	},
+
+	generateProperties: function() {
 
 		this.max_radius = 50;		  						//initial size
 		this.min_radius = 10;		  						//initial size
 		this.sight = 40;		  							//initial sight radius
-		this.sightVisible = true;
 		this.color = '#0066cc'; 							//initial color of SIM
-		this.oldColor = this._shadeColor(this.color, -0.3);
 		this.strength = 0.25;		 		//initial strength
 		this.number_flagellum = _.random(1,2);		  					//default speed
+
+		this.force = 0.05;		  							//default speed
+
+		this.max_age = 1;									//max_age
+
+		this.antibodies = false;							//has antibodies?
+		this.disease = false;								//has disease?
+		this.lifespan = 100;								//how long does it live? (in # of movements)
+		this.memory_size = 3;								//size of memory
+		this.intoxication = 0.8;							//probability of being intoxicated
+		this.poison_lethality = 0.8;						//probability of dying from poison
+		this.poison_lifespan = 0.1;							//reduced lifespan after getting poisoned
+		this.fecundity = 0.001;								//fecundity probability
+		this.mutation_probability = 0.1;					//mutation probability
+		this.initial_energy = 0.15;							//amount of energy
+
+	},
+
+	generateStateProperties: function() {
+		//state
 
 		this.speed = 1 + 10 * ((this.number_flagellum < 5) ? this.number_flagellum : 0); //default speed
 		if(this.number_flagellum === 0) {
 			this.speed = 0;
 		}
 
-		this.force = 0.05;		  							//default speed
-
-		this.max_speed = this.speed + (this.strength);		//maximum speed
-		this.max_force = this.force + (this.strength);		//maximum force
-
-		this.max_age = 1;									//max_age
-
-		this.antibodies = false;								//has antibodies?
-		this.disease = false;										//has disease?
-		this.lifespan = 100;										//how long does it live? (in # of movements)
-		this.memory_size = 3;										//size of memory
-		this.intoxication = 0.8;								//probability of being intoxicated
-		this.poison_lethality = 0.8;						//probability of dying from poison
-		this.poison_lifespan = 0.1;							//reduced lifespan after getting poisoned
-		this.cost_per_movement = 3;							//energy cost per movement
-		this.fecundity = 0.001;										//energy cost per movement
-		this.initial_energy = 0.15;											//amount of energy
-
-		//state
-
+		this.alive = true;
+		this.oldColor = this._shadeColor(this.color, -0.3);
 		this.position = false;										//current position (false = random)
 		var randomx = Math.random() * 2 - 1,						//negative and positive vector between -1 and 1
 			randomy = Math.random() * 2 - 1; 
 		this.vector = new paper.Point(randomx, randomy); 			//negative and positive vector between -1 and 1	
 		this.acceleration = new paper.Point();						//current acceleration
 		this.hungry = 0;											//is hungry now?
-		this.energy = this.initial_energy;											//amount of energy
+		this.energy = this.initial_energy;							//amount of energy
 		this.age = 0;												//age
 		this.poisoned = false;										//is poisoned now?
 		this.reproducing = false;									//is reproducing now?
-		this.mate = null;									//is reproducing now?
+		this.mate = null;											//is reproducing now?
 		this.energy_reproduction = 0;
 		this.current_speed = 0; 									//current speed
 		this.memory = [];											//position memory
 		this.current_radius = 0;									//current size
 		this.avoid_collision = true; 								//is currently avoiding collision?
 		this.last_angle = 0;
+		this.sightVisible = true;
+		this.max_speed = this.speed + (this.strength);		//maximum speed
+		this.max_force = this.force + (this.strength);		//maximum force
 
 		//stores distances with other individuals
-		this.distances = [];
+		this.distances = {};
 		this.count = 0;
 
 		//stores points for tail
@@ -81,22 +103,10 @@ var Individual = paper.Base.extend({
 		for (var i = 0, l = this.strength * 10 + 10; i < l; i++) {
 			this.points.push(new paper.Point());
 		}
-
-		//if other parameters are provided, apply properties
-		if(!_.isUndefined(options)) {
-			_.each(options, function(value, key) {
-				this[key] = value;
-			});
-		}
-
 		//set random position if none is defined
 		if(this.position === false) {
-			this._setPosition();
+			this.setPosition();
 		}
-
-		//draw individual
-		this.draw();
-
 	},
 
 	/*
@@ -106,20 +116,29 @@ var Individual = paper.Base.extend({
 
 	run: function (objects) {
 
-		this._setEnergy();
+		this._stepEnergy();
 		this._setSize();
 		this._setAge();
 
-		var individuals = objects.population.getIndividuals();
+		this.population = objects.population;
+		var individuals = this.population.getIndividuals();
 		
 		this.calculateDistances(individuals);
 		var separation = this.separate(individuals).multiply(2);
 
 		//	this.avoid(individuals, separation, new paper.Point(600,400));
 		if(this.reproducing && !_.isNull(this.mate)) {
-			//can overlap
-			this.go_to(individuals, separation, this.mate.position, true);
-			this.end_reproduction();
+
+			//if individual still exists
+			if(this.population.exists(individuals[this.mate])) {
+				//can overlap
+				this.go_to(individuals, separation, individuals[this.mate].position, true);
+				this.end_reproduction(individuals);
+			}
+			else {
+				this.interrupt_reproduction();
+				this.flock(individuals, separation);
+			}
 		}
 		else {
 			this.flock(individuals, separation);
@@ -155,10 +174,11 @@ var Individual = paper.Base.extend({
 	},
 
 	calculateDistances: function(individuals) {
-		for (var i = 0, l = individuals.length; i < l; i++) {
-			var other = individuals[i];
-			this.distances[i] = other.position.getDistance(this.position, true);
-		}
+		var _this = this;
+		_.each(individuals, function(individual, ind) {
+			var other = individual;
+			_this.distances[ind] = other.position.getDistance(_this.position, true);
+		});
 	},
 
 	separate: function(individuals) {
@@ -166,21 +186,23 @@ var Individual = paper.Base.extend({
 		var steer = new paper.Point();
 		var count = 0;
 		// For every individual in the system, check if it's too close
-		for (var i = 0, l = individuals.length; i < l; i++) {
-			var distance = this.distances[i];
-			if (distance > 0 && distance < desiredSeparation) {
+		var _this = this;
+		_.each(individuals, function(individual, ind) {
+			var distance = _this.distances[ind];
+			//if reference is to the same object
+			if (_this !== individual && distance < desiredSeparation) {
 
 				//probability of reproducing
-				if(Math.random() < this.fecundity) {
-					this.start_reproduction(individuals[i]);
+				if(Math.random() < _this.fecundity) {
+					_this.start_reproduction(individuals, ind);
 				}
 				// Calculate vector pointing away from neighbor
-				var delta = this.position.subtract(individuals[i].position);
+				var delta = _this.position.subtract(individuals[ind].position);
 				delta.length = 1 / distance;
 				steer = steer.add(delta);
 				count++;
 			}
-		}
+		});
 		// Average -- divide by how many
 		if (count > 0)
 			steer = steer.divide(count);
@@ -199,22 +221,22 @@ var Individual = paper.Base.extend({
 		var neighborDist = 25;
 		var steer = new paper.Point();
 		var count = 0;
-		for (var i = 0, l = individuals.length; i < l; i++) {
-			var distance = this.distances[i];
+		var _this = this;
+		_.each(individuals, function(individual, ind) {
+			var distance = _this.distances[ind];
 			if (distance > 0 && distance < neighborDist) {
-				steer = steer.add(individuals[i].vector);
+				steer = steer.add(individuals[ind].vector);
 				count++;
 			}
-		}
-
+		});
 		if (count > 0) {
 			steer = steer.divide(count);
 		}
 		if (!steer.isZero()) {
 			// Implement Reynolds: Steering = Desired - Velocity
-			steer.length = this.maxSpeed;
+			steer.length = this.max_speed;
 			steer = steer.subtract(this.vector);
-			steer.length = Math.min(steer.length, this.maxForce);
+			steer.length = Math.min(steer.length, this.max_force);
 		}
 		return steer;
 	},
@@ -226,19 +248,20 @@ var Individual = paper.Base.extend({
 		var neighborDist = 10000;
 		var sum = new paper.Point(0, 0);
 		var count = 0;
-		for (var i = 0, l = individuals.length; i < l; i++) {
-			var distance = this.distances[i];
+		var _this = this;
+		_.each(individuals, function(individual, ind) {
+			var distance = _this.distances[ind];
 			if (distance > 0 && distance < neighborDist) {
 
 				//make sure they are not attracted to the ones already reproducing
 				//reproducing ones are not part of the flock
-				if(!individuals[i].reproducing) {
-					sum = sum.add(individuals[i].position); // Add location
+				if(!individuals[ind].reproducing) {
+					sum = sum.add(individuals[ind].position); // Add location
 					count++;
 				}
 
 			}
-		}
+		});
 		if (count > 0) {
 			sum = sum.divide(count);
 			// Steer towards the location
@@ -255,7 +278,7 @@ var Individual = paper.Base.extend({
 			desired = target.subtract(this.position);
 		var distance = desired.length;
 		// Two options for desired vector magnitude
-		// (1 -- based on distance, 2 -- maxSpeed)
+		// (1 -- based on distance, 2 -- max_speed)
 		if (slowdown && distance < 100) {
 			// This damping is somewhat arbitrary:
 			desired.length = this.max_speed * 0.1;
@@ -277,7 +300,7 @@ var Individual = paper.Base.extend({
 			avoiding = target.subtract(this.position);
 		var distance = avoiding.length;
 		// Two options for desired vector magnitude
-		// (1 -- based on distance, 2 -- maxSpeed)
+		// (1 -- based on distance, 2 -- max_speed)
 		if (slowdown && distance > 100) {
 			// This damping is somewhat arbitrary:
 			avoiding.length = this.max_speed * 0.1;
@@ -302,7 +325,7 @@ var Individual = paper.Base.extend({
 		if (position.x > size.width + radius) vector.x = -size.width -radius;
 		if (position.y > size.height + radius) vector.y = -size.height -radius;
 		if (!vector.isZero()) {
-			this.position = this.position.add(vector);
+			this.setPosition(this.position.add(vector));
 			var points = this.points;
 			for (var i = 0, l = points.length; i < l; i++) {
 				points[i] = points[i].add(vector);
@@ -327,7 +350,7 @@ var Individual = paper.Base.extend({
 		this.vector = this.vector.add(this.acceleration);
 		// Limit speed (vector#limit?)
 		this.vector.length = Math.min(this.max_speed, this.vector.length);
-		this.position = this.position.add(this.vector);
+		this.setPosition(this.position.add(this.vector));
 		// Reset acceleration to 0 each cycle
 		this.acceleration = new paper.Point();
 	},
@@ -354,60 +377,180 @@ var Individual = paper.Base.extend({
 	},
 
 	die: function() {
-
-		return;
-
-		console.log('die '+this.index);
 		this.alive = false;
 		this.clear();
 	},
 
-	start_reproduction: function(individual) {
+	start_reproduction: function(individuals, ind) {
+
+		var individual = individuals[ind];
 
 		if(this.reproducing === true
 			|| individual.reproducing === true) {
 			return;
 		}
 
-		console.log("reproducing "+this.index+" and "+individual.index);
-
-		this.reproducing = true;
-		this.mate = individual;
+		this.setReproduction(true);
+		this.mate = ind;
 		this.energy_reproduction = this.energy;
 
-		individual.reproducing = true;
-		individual.mate = this;
+		individual.setReproduction(true);
+		individual.mate = this.index;
 		individual.energy_reproduction = individual.energy;
 
-		this.acceleration = this.mate.acceleration.multiply(-1);
-
+		this.acceleration = individual.acceleration.multiply(-1);
 	},
 
-	end_reproduction: function() {
+	end_reproduction: function(individuals) {
 
 		//cant end what hasnt even started
 		if(this.reproducing === false || _.isNull(this.mate)) {
 			return;
 		}
 
+		var individual = individuals[this.mate];
+
 		//check if enough energy is available
-		var min_energy = Math.min(this.initial_energy, this.mate.initial_energy) / 10;
+		var min_energy = Math.min(this.initial_energy, individual.initial_energy) / 10;
 		var combined_energy = (this.energy_reproduction - this.energy) +
-			 (this.mate.energy_reproduction - this.mate.energy);
+			 (individual.energy_reproduction - individual.energy);
 		if(combined_energy < min_energy) {
 			//not enough time
 			return;
 		}
 
-		console.log("BORN!!!!");
+		//reproduce
+		this.reproduce(individual, min_energy);
 
-		this._setPosition(this.mate.position);
-		this.acceleration = this.mate.acceleration;
-		this.vector = this.mate.vector;
+		//separate them
+		individual.setReproduction(false);
+		this.setReproduction(false);
 
-		this.reproducing = false;
-		this.mate.reproducing = false;
+		this.acceleration = individual.acceleration.multiply(-1);
+
+		individual.mate = null;
 		this.mate = null;
+
+		//create new individual
+
+	},
+
+	interrupt_reproduction: function() {
+		this.setReproduction(false);
+		this.mate = null;
+	},
+
+	reproduce: function(individual, min_energy) {
+
+		var new_individual_properties = this.crossover(individual);
+		var new_individual_properties = this.mutation(new_individual_properties);
+		//set position to current position
+		new_individual_properties.position = this.position.clone();
+		//create individual
+		var new_individual = this.population.createIndividual(new_individual_properties);
+		//update positions and sizes
+		new_individual.updateItems();
+
+	},
+
+	crossover: function(individual) {
+
+		//all properties that must be crossed over
+		dna_properties = [
+			'max_radius',
+			'min_radius',
+			'sight',
+			'color',
+			'strength',
+			'number_flagellum',
+			'force',
+			'max_age',
+			'antibodies',
+			'disease',
+			'lifespan',
+			'memory_size',
+			'intoxication',
+			'poison_lethality',
+			'poison_lifespan',
+			'fecundity',
+			'mutation_probability',
+			'initial_energy',
+			];
+
+		var new_properties = {};
+		var _this = this;
+		_.each(dna_properties, function(property) {
+			//if both are defined, sort
+			var value;
+			if(!_.isUndefined(_this[property]) && !_.isUndefined(individual[property])) {
+				if(Math.random() < 0.5) {
+					value = _this[property];
+				} else {
+					value = individual[property];
+				}
+			}
+			//try to get the only defined one
+			if(_.isUndefined(_this[property]) || _.isUndefined(individual[property])) {
+				value = _this[property] || individual[property];
+			}
+			//if its defined, add it
+			if(!_.isUndefined(value)) {
+				new_properties[property] = value;
+			}
+		});
+		return new_properties;
+
+	},
+
+	mutation: function(properties) {
+		//mutate each property
+		var _this = this;
+		var new_properties = {};
+
+		_.each(properties, function(value, property) {
+
+			var sort = Math.random();
+			var new_value;
+			//only change if mutation condition is satisfied
+			if(sort < _this.mutation_probability) {
+				//if its a color
+				if(_.isString(value)) {
+					var hex = value.substring(1,7); //get color
+					var number_hex = parseInt(hex, 16); //get corresponding int
+					new_value = Math.round(number_hex * _.random(1,100000) / _.random(1,100000));
+					new_value = new_value.toString(16); //get new hex
+					new_value = "#" + (("000000" + new_value).slice(-6));
+				}
+				//if its a number
+				else if(_.isNumber(value)) {
+
+					var int_properties = [
+						'max_radius',
+						'min_radius',
+						'sight',
+						'number_flagellum',
+						'memory_size'
+					];
+
+					new_value = value * _.random(1,5) / _.random(1,5);
+
+					//if property must be an int
+					if(_.indexOf(int_properties, property) !== -1) {
+						new_value = Math.round(new_value);
+					}
+
+				}
+				//if its a boolean
+				else if(_.isBoolean(value)) {
+					new_value = !value;
+				}
+			} else {
+				new_value = value;
+			}
+			new_properties[property] = new_value;
+		});
+
+		return new_properties;
 	},
 
 	clear: function() {
@@ -527,15 +670,20 @@ var Individual = paper.Base.extend({
 	},
 
 
+	setEnergy: function(new_energy) {
+		this.energy = new_energy;
+	},
+
 	/*
 	 * The following methods are of general purpose, mostly private
 	 */
 
-	_setEnergy: function() {
+	_stepEnergy: function() {
 		//subtract energy
-		this.energy -= 0.00005;
+		this.setEnergy(this.energy - 0.00005);
 
 		if(this.energy < 0.01) {
+			console.log(this.index + " died from hunger");
 			this.die();
 		}
 		else if(this.energy < 0.08) {
@@ -555,6 +703,7 @@ var Individual = paper.Base.extend({
 			this.color = this.oldColor;
 		}
 		if(this.age > this.max_age) {
+			console.log(this.index + " died from old age");
 			this.die();
 		}
 	},
@@ -564,7 +713,8 @@ var Individual = paper.Base.extend({
 		if(this.current_radius < this.min_radius) this.current_radius = this.min_radius;
 	},
 
-	_setPosition: function (position) {
+	setPosition: function (position) {
+
 		var new_position;
 		//if the position is not provided, generate one
 		if(_.isUndefined(position)) {
@@ -600,6 +750,10 @@ var Individual = paper.Base.extend({
 	    var num = parseInt(color.slice(1),16), amt = Math.round(255 * percent), R = (num >> 16) + amt, G = (num >> 8 & 0x00FF) + amt, B = (num & 0x0000FF) + amt;
 	    return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
 	},
+
+	setReproduction: function(value) {
+		this.reproducing = value;
+	}
 
 
 
