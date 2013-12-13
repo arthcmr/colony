@@ -28,18 +28,18 @@ var Colony = paper.Base.extend({
 		console.log("============== INITIALIZING ==============");
 
 		var settings = {
-			stage_id: "stage"
+			stages: ["population", "meals"]
 		};
 		_.extend(settings, options);
 
 		//set up stage
-		this.stage = new Stage(settings.stage_id);
-
-		//create population
-		this.objects.population = new Population();
+		this.stage = new Stage(settings.stages);
 
 		//create meals collection
-		this.objects.meals = new Meals();
+		this.objects.meals = new Meals({}, this.stage);
+
+		//create population
+		this.objects.population = new Population({}, this.stage);
 
 		console.log("================ RUNNING ================");
 
@@ -62,7 +62,15 @@ var Colony = paper.Base.extend({
 
 	_run: function() {
 
-		this.objects.population.run(this.objects);
+		var execution_order = ['population', 'meals'];
+
+		//execute each layer, following the order
+		var _this = this;
+		_.each(execution_order, function(layer) {
+			// switch to corresponding stage and run
+			//_this.stage.switchToStage(layer);
+			_this.objects[layer].run(_this.objects);
+		})
 
 	},
 

@@ -14,17 +14,18 @@
 	 * Initialization
 	 */
 
-	initialize: function(options) {
+	initialize: function(options, stage) {
 
 	 	var settings = {
-			initial_number: 25
+			initial_number: 10
 		};
 		_.extend(settings, options);
+
+		this.stage = stage;
 
 		for(var i=0; i<settings.initial_number; i++) {
 			var ind = this.createIndividual();
 		}
-
 	},
 
 	getIndividuals: function() {
@@ -32,6 +33,9 @@
 	},
 
 	createIndividual: function(properties) {
+
+		this.stage.switchToLayer('population');
+
 		if(_.isUndefined(properties)) properties = {};
 
 		var individual = new Individual(properties, this.max_id);

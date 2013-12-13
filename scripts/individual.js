@@ -39,7 +39,7 @@ var Individual = paper.Base.extend({
 
 	generateProperties: function() {
 
-		this.max_radius = 50;		  						//initial size
+		this.max_radius = 25;		  						//initial size
 		this.min_radius = 10;		  						//initial size
 		this.sight = 40;		  							//initial sight radius
 		this.color = '#0066cc'; 							//initial color of SIM
@@ -57,9 +57,9 @@ var Individual = paper.Base.extend({
 		this.intoxication = 0.8;							//probability of being intoxicated
 		this.poison_lethality = 0.8;						//probability of dying from poison
 		this.poison_lifespan = 0.1;							//reduced lifespan after getting poisoned
-		this.fecundity = 0.001;								//fecundity probability
+		this.fecundity = 0.1;								//fecundity probability
 		this.mutation_probability = 0.1;					//mutation probability
-		this.initial_energy = 0.15;							//amount of energy
+		this.initial_energy = 0.5;							//amount of energy
 
 	},
 
@@ -96,6 +96,10 @@ var Individual = paper.Base.extend({
 
 		//stores distances with other individuals
 		this.distances = {};
+		//stores distances with meals
+		this.distancesMeals = {};
+		//stores distances with other meals
+		this.meals = {};
 		this.count = 0;
 
 		//stores points for tail
@@ -122,9 +126,22 @@ var Individual = paper.Base.extend({
 
 		this.population = objects.population;
 		var individuals = this.population.getIndividuals();
+
+		this.meals = objects.meals;
+		var meals = this.meals.getMeals();
 		
-		this.calculateDistances(individuals);
-		var separation = this.separate(individuals).multiply(2);
+		//true to force every calculation
+		this.distances = this.calculateDistances(individuals);
+		this.distancesMeals = this.calculateDistances(meals);
+
+		//separation between individuals
+		var desiredSeparation = (this.current_radius + this.sight) * (this.current_radius + this.sight);
+		var separation = this.separate(individuals, desiredSeparation).multiply(2);
+		//reproduction
+		this.checkReproduction(individuals, desiredSeparation);
+
+		//reproduction
+		this.checkEating(meals, desiredSeparation);
 
 		//	this.avoid(individuals, separation, new paper.Point(600,400));
 		if(this.reproducing && !_.isNull(this.mate)) {
@@ -140,7 +157,30 @@ var Individual = paper.Base.extend({
 				this.flock(individuals, separation);
 			}
 		}
-		else {
+		else if(this.is_very_hungry()) {
+
+			if(this.memory.length < 1) {
+				if((_.isUndefined(this.meal)) || (this.position.getDistance(this.meal) < desiredSeparation)) {
+					this.meal = this._getRandomPoint();
+				}
+			}
+			else {
+				this.meal = this.memory[0];
+			}
+			this.go_to(individuals, separation, this.meal);
+		}
+		else if(this.is_hungry()) {
+
+			if(this.memory.length > 0) {
+				if(_.isUndefined(this.meal)) {
+					this.meal = this.memory[0];
+				}
+				this.go_to(individuals, separation, this.meal);
+			} else {
+				this.flock(individuals, separation);
+			}
+		}
+		else{
 			this.flock(individuals, separation);
 		}
 
@@ -173,29 +213,49 @@ var Individual = paper.Base.extend({
 		this.acceleration = this.acceleration.add(separation);
 	},
 
-	calculateDistances: function(individuals) {
+	/*
+	calculateDistances from every viewable object
+	if force === true, calculate distance from every object in the collection
+	*/
+	calculateDistances: function(collection, force, ordered) {
+		var distances = {};
 		var _this = this;
-		_.each(individuals, function(individual, ind) {
-			var other = individual;
-			_this.distances[ind] = other.position.getDistance(_this.position, true);
+		_.each(collection, function(item, ind) {
+			var other = item;
+			if(force === true || _this.intersects(other)) {
+				distances[ind] = other.position.getDistance(_this.position, true);
+			}
+			/* dont need to add distances we dont need
+			else {
+				distances[ind] = Infinity;
+			}
+			*/
 		});
+
+		var ordered_distances = _.map(distances, function(v, k) {
+			return {
+				value: v,
+				key: k
+			}
+		});
+
+		ordered_distances = _.sortBy(ordered_distances, function(i) { return i.value });
+
+		return _.clone(ordered_distances);
 	},
 
-	separate: function(individuals) {
-		var desiredSeparation = (this.current_radius + this.sight) * (this.current_radius + this.sight);
+	separate: function(individuals, desiredSeparation) {
 		var steer = new paper.Point();
 		var count = 0;
 		// For every individual in the system, check if it's too close
 		var _this = this;
-		_.each(individuals, function(individual, ind) {
-			var distance = _this.distances[ind];
+		_.each(this.distances, function(x) {
+			var distance = x.value;
+			var ind = x.key;
+			var individual = individuals[ind];
+
 			//if reference is to the same object
 			if (_this !== individual && distance < desiredSeparation) {
-
-				//probability of reproducing
-				if(Math.random() < _this.fecundity) {
-					_this.start_reproduction(individuals, ind);
-				}
 				// Calculate vector pointing away from neighbor
 				var delta = _this.position.subtract(individuals[ind].position);
 				delta.length = 1 / distance;
@@ -215,6 +275,23 @@ var Individual = paper.Base.extend({
 		return steer;
 	},
 
+	checkReproduction: function(individuals, desiredSeparation) {
+		// For every individual in the system, check if it's too close
+		var _this = this;
+		_.each(this.distances, function(x) {
+			var distance = x.value;
+			var ind = x.key;
+			var individual = individuals[ind];
+			//if reference is to the same object
+			if (_this !== individual && distance < desiredSeparation && !_this.is_hungry()) {
+				//probability of reproducing
+				if(Math.random() < _this.fecundity) {
+					_this.start_reproduction(individuals, ind);
+				}
+			}
+		});
+	},
+
 	// Alignment
 	// For every nearby individual in the system, calculate the average velocity
 	align: function(individuals) {
@@ -222,10 +299,13 @@ var Individual = paper.Base.extend({
 		var steer = new paper.Point();
 		var count = 0;
 		var _this = this;
-		_.each(individuals, function(individual, ind) {
-			var distance = _this.distances[ind];
+
+		_.each(this.distances, function(x) {
+			var distance = x.value;
+			var ind = x.key;
+			var individual = individuals[ind];
 			if (distance > 0 && distance < neighborDist) {
-				steer = steer.add(individuals[ind].vector);
+				steer = steer.add(individual.vector);
 				count++;
 			}
 		});
@@ -249,14 +329,16 @@ var Individual = paper.Base.extend({
 		var sum = new paper.Point(0, 0);
 		var count = 0;
 		var _this = this;
-		_.each(individuals, function(individual, ind) {
-			var distance = _this.distances[ind];
+		_.each(this.distances, function(x) {
+			var distance = x.value;
+			var ind = x.key;
+			var individual = individuals[ind];
 			if (distance > 0 && distance < neighborDist) {
 
 				//make sure they are not attracted to the ones already reproducing
 				//reproducing ones are not part of the flock
-				if(!individuals[ind].reproducing) {
-					sum = sum.add(individuals[ind].position); // Add location
+				if(!individual.reproducing) {
+					sum = sum.add(individual.position); // Add location
 					count++;
 				}
 
@@ -378,6 +460,10 @@ var Individual = paper.Base.extend({
 
 	die: function() {
 		this.alive = false;
+		//become meals
+		var area = this.sightRing.bounds;
+		var num_meals = Math.round(area.width * area.height / 2000);
+		this.meals.generateMeals(num_meals, area);
 		this.clear();
 	},
 
@@ -386,7 +472,9 @@ var Individual = paper.Base.extend({
 		var individual = individuals[ind];
 
 		if(this.reproducing === true
-			|| individual.reproducing === true) {
+			|| individual.reproducing === true
+			|| this.is_hungry()
+			|| individual.is_hungry()) {
 			return;
 		}
 
@@ -571,7 +659,7 @@ var Individual = paper.Base.extend({
 		// 			});
 
 		this.sightRing = new paper.Path.Circle({
-			radius: this.max_radius + this.sight,
+			radius: this.current_radius + this.sight,
 			strokeColor: '#ccc',
 			strokeWidth: 1,
 			opacity: 0.3
@@ -608,12 +696,113 @@ var Individual = paper.Base.extend({
 
 	},
 
+	checkEating: function(meals, desiredSeparation) {
+
+		var _this = this;
+
+		var map_memory = _.map(this.memory, function(point) {
+			return {
+				point: point,
+				distance: _this.position.getDistance(point, true)
+			}
+		});
+		//closest first
+		map_memory = _.sortBy(map_memory, function(point) {
+			return point.distance;
+		});
+		this.memory = _.map(map_memory, function(p) {
+			return p.point;
+		});
+
+		// memory visible
+		var memory_visible = _.filter(map_memory, function(p) {
+			return (p.distance < desiredSeparation);
+		});
+
+		//remove visible points without a meal
+		_.each(memory_visible, function(p) {
+			var search = _.findWhere(_this.distancesMeals, { value: p.distance });
+			if(_.isUndefined(search)) {
+				_this.removeFromMemory(p.point);
+			}
+		});
+
+		//remove visible meal
+		if(this.meal) {
+			var distance = _this.position.getDistance(this.meal, true);
+			if(distance < desiredSeparation) {
+				var search = _.findWhere(_this.distancesMeals, { value: distance });
+				if(_.isUndefined(search)) {
+					if(this.memory.length > 0) {
+						this.meal = this.memory[0];
+					} else {
+						this.meal = undefined;
+					}
+				}
+			}
+		}
+
+		// For every individual meal in the system, check if it's too close
+		_.each(this.distancesMeals, function(x) {
+			var distance = x.value;
+			var ind = x.key;
+			var meal = meals[ind];
+			//if reference is to the same object
+			if (distance < desiredSeparation) {
+
+				_this.insertMemory(meal.position);
+
+				if(!_this.is_full() && distance < _this.current_radius) {
+					_this.eat(meal);
+				}
+			}
+		});
+
+	},
+
+	eat: function(meal) {
+		if(this.meals.exists(meal)) {
+			var energy = meal.eat();
+			var position = meal.position;
+			this.setEnergy(this.energy + energy);
+			this.removeFromMemory(position);
+			this.meal = undefined;
+		} else {
+			return;
+		}
+	},
+
+	insertMemory: function(point) {
+		//dont insert if its already there
+		if(this.memory.indexOf(point) !== -1) return;
+		//insert point in the beginning of array
+		this.memory.unshift(point);
+		//make sure only the correct amount is in memory
+		this.memory = this.memory.slice(0, this.memory_size);
+	},
+
+	removeFromMemory: function(point) {
+		this.memory = _.without(this.memory, point);
+	},
+
 	//actually position elements
 	updateItems: function() {
 		this._setItemColor();
 		this._setItemSize();
 		this._setItemFlagellum();
 		this._setItemPosition();
+	},
+
+	is_very_hungry: function() {
+		return (this.hungry > 2);
+	},
+
+	is_hungry: function() {
+		return (this.hungry > 1);
+	},
+
+	is_full: function() {
+		return (this.hungry === 0);
 	},
 
 	_setItemColor: function() {
@@ -680,20 +869,23 @@ var Individual = paper.Base.extend({
 
 	_stepEnergy: function() {
 		//subtract energy
-		this.setEnergy(this.energy - 0.00005);
+		this.setEnergy(this.energy - 0.0005);
 
 		if(this.energy < 0.01) {
 			console.log(this.index + " died from hunger");
 			this.die();
 		}
-		else if(this.energy < 0.08) {
-			this.hungry = 2;
+		else if(this.energy < 0.1) {
+			this.hungry = 3;	//starving
 		}
-		else if(this.energy < 0.15) {
-			this.hungry = 1;
+		else if(this.energy < 0.5) {
+			this.hungry = 2;	//hungry
+		}
+		else if(this.energy > 0.99) {
+			this.hungry = 0;	//full, cant eat
 		}
 		else {
-			this.hungry = 0;
+			this.hungry = 1;
 		}
 	},
 
@@ -753,6 +945,22 @@ var Individual = paper.Base.extend({
 
 	setReproduction: function(value) {
 		this.reproducing = value;
+	},
+
+	intersects: function(element) {
+		var bounding_box1 = this.bounds();
+		var bounding_box2 = element.bounds();
+		return bounding_box1.intersects(bounding_box2);
+	},
+
+	contains: function(element) {
+		var bounding_box1 = this.bounds();
+		var bounding_box2 = element.bounds();
+		return bounding_box1.contains(bounding_box2);
+	},
+
+	bounds:  function() {
+		return this.sightRing.bounds;
 	}
 
 
