@@ -58,7 +58,7 @@ var Individual = paper.Base.extend({
 		this.poison_lethality = 0.8;						//probability of dying from poison
 		this.poison_lifespan = 0.1;							//reduced lifespan after getting poisoned
 		this.fecundity = 0.1;								//fecundity probability
-		this.mutation_probability = 0.1;					//mutation probability
+		this.mutation_probability = 0.01;					//mutation probability
 		this.initial_energy = 0.5;							//amount of energy
 
 	},
@@ -79,7 +79,7 @@ var Individual = paper.Base.extend({
 		this.vector = new paper.Point(randomx, randomy); 			//negative and positive vector between -1 and 1	
 		this.acceleration = new paper.Point();						//current acceleration
 		this.hungry = 0;											//is hungry now?
-		this.energy = this.initial_energy;
+		this.energy = this.initial_energy + ((Math.random() * 2 - 1) * this.initial_energy / 4); //small variation of approximately +/-12.5%
 		this.age = 0;												//age
 		this.poisoned = false;										//is poisoned now?
 		this.reproducing = false;									//is reproducing now?
@@ -124,6 +124,8 @@ var Individual = paper.Base.extend({
 		this._setSize();
 		this._setAge();
 
+		//stores important objects that this individual interacts with
+
 		this.population = objects.population;
 		var individuals = this.population.getIndividuals();
 
@@ -137,11 +139,16 @@ var Individual = paper.Base.extend({
 		//separation between individuals
 		var desiredSeparation = (this.current_radius + this.sight) * (this.current_radius + this.sight);
 		var separation = this.separate(individuals, desiredSeparation).multiply(2);
-		//reproduction
-		this.checkReproduction(individuals, desiredSeparation);
+		
+		////check if individual should reproduce or share information
+		this.checkSharing(individuals, desiredSeparation);
 
-		//reproduction
+		//check if individual should eat
 		this.checkEating(meals, desiredSeparation);
+
+		/*
+		 * behavior when individual is reproducing: overlap mate and cruise together
+		 */
 
 		//	this.avoid(individuals, separation, new paper.Point(600,400));
 		if(this.reproducing && !_.isNull(this.mate)) {
@@ -157,29 +164,55 @@ var Individual = paper.Base.extend({
 				this.flock(individuals, separation);
 			}
 		}
+
+		/*
+		 * behavior when individual is staving: pursue food if they remember or look desperately for food at random
+		 */
+
 		else if(this.is_very_hungry()) {
 
+			/* if theres no memory, look desperately for a new place to go */
 			if(this.memory.length < 1) {
-				if((_.isUndefined(this.meal)) || (this.position.getDistance(this.meal) < desiredSeparation)) {
+				if((_.isUndefined(this.meal)) || (this.position.getDistance(this.meal, true) < desiredSeparation)) {
 					this.meal = this._getRandomPoint();
+					this.wandering = true;
 				}
 			}
 			else {
-				this.meal = this.memory[0];
+				/* if there is some memory and no memory has been picked, pick the closest */
+				/* if a point has been picked at random and individual is wandering, pick the memory point */
+				if(_.isUndefined(this.meal) || this.wandering === true) {
+					this.meal = this.memory[0];
+					this.wandering = false;
+				}
 			}
+			/* pursue the target */
 			this.go_to(individuals, separation, this.meal);
 		}
+
+		/*
+		 * behavior when individual is hungry, but not staving: pursue food if they remember where they were
+		 */
+
 		else if(this.is_hungry()) {
 
+			/* if there is some memory, pick the first memory and go */
 			if(this.memory.length > 0) {
 				if(_.isUndefined(this.meal)) {
 					this.meal = this.memory[0];
 				}
 				this.go_to(individuals, separation, this.meal);
-			} else {
+			}
+			/* if there is no memory, flock with other individuals */
+			else {
 				this.flock(individuals, separation);
 			}
 		}
+
+		/*
+		 * behavior when individual is not hungry: flock
+		 */
+
 		else{
 			this.flock(individuals, separation);
 		}
@@ -275,7 +308,7 @@ var Individual = paper.Base.extend({
 		return steer;
 	},
 
-	checkReproduction: function(individuals, desiredSeparation) {
+	checkSharing: function(individuals, desiredSeparation) {
 		// For every individual in the system, check if it's too close
 		var _this = this;
 		_.each(this.distances, function(x) {
@@ -283,10 +316,14 @@ var Individual = paper.Base.extend({
 			var ind = x.key;
 			var individual = individuals[ind];
 			//if reference is to the same object
-			if (_this !== individual && distance < desiredSeparation && !_this.is_hungry()) {
+			if (_this !== individual && distance < desiredSeparation) {
 				//probability of reproducing
-				if(Math.random() < _this.fecundity) {
+				if(!_this.is_hungry() && Math.random() < _this.fecundity) {
 					_this.start_reproduction(individuals, ind);
+				}
+				//if this is hungry and individual is not
+				else if(_this.is_hungry() && !individual.is_hungry()) {
+					_this.mergeMemory(individual.memory);
 				}
 			}
 		});
@@ -462,7 +499,8 @@ var Individual = paper.Base.extend({
 		this.alive = false;
 		//become meals
 		var area = this.sightRing.bounds;
-		var num_meals = Math.round(area.width * area.height / 2000);
+		var area2 = this.body.bounds;
+		var num_meals = Math.round(area2.width * area2.height / 100);
 		this.meals.generateMeals(num_meals, area);
 		this.clear();
 	},
@@ -772,6 +810,15 @@ var Individual = paper.Base.extend({
 		}
 	},
 
+	/*
+	 * inserts contents of another memory, prioritizing this individual's memory
+	 */
+
+	mergeMemory: function(memory) {
+		this.memory = _.union(this.memory, memory);
+		this.memory = this.memory.slice(0, this.memory_size);
+	},
+
 	insertMemory: function(point) {
 		//dont insert if its already there
 		if(this.memory.indexOf(point) !== -1) return;
@@ -869,13 +916,14 @@ var Individual = paper.Base.extend({
 
 	_stepEnergy: function() {
 		//subtract energy
-		this.setEnergy(this.energy - 0.0005);
+		var energy_step = 0.0001 + 0.000025 * this.current_radius;
+		this.setEnergy(this.energy - energy_step);
 
 		if(this.energy < 0.01) {
 			console.log(this.index + " died from hunger");
 			this.die();
 		}
-		else if(this.energy < 0.1) {
+		else if(this.energy < 0.2) {
 			this.hungry = 3;	//starving
 		}
 		else if(this.energy < 0.5) {
@@ -924,7 +972,8 @@ var Individual = paper.Base.extend({
 		var stage_size = paper.view.size;
 		var max_point = new paper.Point(stage_size.getWidth(), stage_size.getHeight());
 		//generate a random point between (0,0) and (max_width, max_height)
-		return new paper.Point.random().multiply(max_point);
+		var random_point = new paper.Point.random().multiply(max_point);
+		return random_point;
 	},
 
 	_getRadius: function(path) {
