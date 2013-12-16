@@ -52,13 +52,12 @@ var Individual = paper.Base.extend({
 
 		this.antibodies = false;							//has antibodies?
 		this.disease = false;								//has disease?
-		this.lifespan = 100;								//how long does it live? (in # of movements)
 		this.memory_size = 3;								//size of memory
 		this.intoxication = 0.8;							//probability of being intoxicated
 		this.poison_lethality = 0.8;						//probability of dying from poison
 		this.poison_lifespan = 0.1;							//reduced lifespan after getting poisoned
 		this.fecundity = 0.1;								//fecundity probability
-		this.mutation_probability = 0.01;					//mutation probability
+		this.mutation_probability = 0.02;					//mutation probability
 		this.initial_energy = 0.5;							//amount of energy
 
 	},
@@ -72,7 +71,7 @@ var Individual = paper.Base.extend({
 		}
 
 		this.alive = true;
-		this.oldColor = this._shadeColor(this.color, -0.3);
+		this.oldColor = this._shadeColor(this.color, 0.3);
 		this.position = false;										//current position (false = random)
 		var randomx = Math.random() * 2 - 1,						//negative and positive vector between -1 and 1
 			randomy = Math.random() * 2 - 1; 
@@ -137,14 +136,15 @@ var Individual = paper.Base.extend({
 		this.distancesMeals = this.calculateDistances(meals);
 
 		//separation between individuals
-		var desiredSeparation = (this.current_radius + this.sight) * (this.current_radius + this.sight);
-		var separation = this.separate(individuals, desiredSeparation).multiply(2);
+		var separationSight = (this.current_radius + this.sight) * (this.current_radius + this.sight);
+		var separationBody = (this.current_radius * 3) * (this.current_radius * 3);
+		var separation = this.separate(individuals, separationBody).multiply(2);
 		
 		////check if individual should reproduce or share information
-		this.checkSharing(individuals, desiredSeparation);
+		this.checkSharing(individuals, separationSight);
 
 		//check if individual should eat
-		this.checkEating(meals, desiredSeparation);
+		this.checkEating(meals, separationSight);
 
 		/*
 		 * behavior when individual is reproducing: overlap mate and cruise together
@@ -173,7 +173,7 @@ var Individual = paper.Base.extend({
 
 			/* if theres no memory, look desperately for a new place to go */
 			if(this.memory.length < 1) {
-				if((_.isUndefined(this.meal)) || (this.position.getDistance(this.meal, true) < desiredSeparation)) {
+				if((_.isUndefined(this.meal)) || (this.position.getDistance(this.meal, true) < separationSight)) {
 					this.meal = this._getRandomPoint();
 					this.wandering = true;
 				}
@@ -213,7 +213,22 @@ var Individual = paper.Base.extend({
 		 * behavior when individual is not hungry: flock
 		 */
 
-		else{
+		else if(!this.is_full() && this.memory.length > 0) {
+			//if individual is not full and is able to see a meal, eat it
+			var meal_point = this.memory[0];
+			if(this.position.getDistance(meal_point, true) < separationSight) {
+				if(_.isUndefined(this.meal)) {
+					this.meal = meal_point;
+				}
+				this.go_to(individuals, separation, this.meal);
+			}
+			else {
+				this.meal = undefined;
+				this.flock(individuals, separation);
+			}
+		}
+
+		else {
 			this.flock(individuals, separation);
 		}
 
@@ -593,13 +608,11 @@ var Individual = paper.Base.extend({
 			'max_age',
 			'antibodies',
 			'disease',
-			'lifespan',
 			'memory_size',
 			'intoxication',
 			'poison_lethality',
 			'poison_lifespan',
 			'fecundity',
-			'mutation_probability',
 			'initial_energy',
 			];
 
@@ -639,6 +652,8 @@ var Individual = paper.Base.extend({
 			var new_value;
 			//only change if mutation condition is satisfied
 			if(sort < _this.mutation_probability) {
+
+				console.log("MUTATED:");
 				//if its a color
 				if(_.isString(value)) {
 					var hex = value.substring(1,7); //get color
@@ -670,6 +685,9 @@ var Individual = paper.Base.extend({
 				else if(_.isBoolean(value)) {
 					new_value = !value;
 				}
+
+				console.log("> "+property+": "+new_value);
+
 			} else {
 				new_value = value;
 			}
@@ -702,6 +720,10 @@ var Individual = paper.Base.extend({
 			strokeWidth: 1,
 			opacity: 0.3
 		});
+
+		if(this.sightVisible === false) {
+			this.sightRing.opacity = 0;
+		}
 
 		//small tail
 		var shortPath = new paper.Path({
@@ -856,18 +878,20 @@ var Individual = paper.Base.extend({
 		var color;
 		if(_.isUndefined(this.dark_color) || color !== this.color) {
 			color = this.color;
-			this.dark_color = this._shadeColor(this.color, 0.1);
-			this.darker_color = this._shadeColor(this.color, 0.2);
+			this.dark_color = this._shadeColor(this.color, -0.1);
+			this.darker_color = this._shadeColor(this.color, -0.2);
 		}
 		switch(this.hungry) {
-			case 2:
+			case 3:
 				color = this.darker_color;
 				break;
-			case 1:
+			case 2:
 				color = this.dark_color;
 				break;
 			case 0:
+			case 1:
 			default:
+				color = this.color;
 				break;
 		}
 
@@ -938,7 +962,7 @@ var Individual = paper.Base.extend({
 	},
 
 	_setAge: function() {
-		this.age += 0.0001;
+		this.age += 0.0002;
 		if(this.age/this.max_age > 0.9) {
 			this.color = this.oldColor;
 		}

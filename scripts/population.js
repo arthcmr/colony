@@ -17,7 +17,7 @@
 	initialize: function(options, stage) {
 
 	 	var settings = {
-			initial_number: 5
+			initial_number: 10
 		};
 		_.extend(settings, options);
 

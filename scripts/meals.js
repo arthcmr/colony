@@ -10,6 +10,8 @@
 
  	max_id: 0,
 
+ 	symbol: undefined,
+
 	/*
 	 * Initialization
 	 */
@@ -17,7 +19,7 @@
 	initialize: function(options, stage) {
 
 	 	var settings = {
-			initial_number: 0
+			initial_number: 100
 		};
 		_.extend(settings, options);
 
@@ -37,7 +39,12 @@
 
 		if(_.isUndefined(properties)) properties = {};
 
-		var meal = new Meal(properties, this.max_id);
+		//get symbol
+		if(_.isUndefined(this.symbol)) {
+			this.symbol = this._getSymbol();
+		}
+
+		var meal = new Meal(properties, this.max_id, this.symbol);
 		//add it to the collection
 		this.collection[this.max_id] = meal;
 		//increase the id
@@ -94,6 +101,32 @@
 			//generate a random point between (0,0) and (max_width, max_height)
 			return new paper.Point.random().multiply(max_point).add(min_point);
 		}
+	},
+
+	_getSymbol: function() {
+
+		//drawing symbol
+		var color = "#f6e6aa";
+		var strokeColor = "#e9ddad";
+
+		var rectangle = new paper.Rectangle(new paper.Point(-3, -3), new paper.Size(6, 6));
+		var path = new paper.Path.Rectangle(rectangle);
+
+		path.style = {
+			strokeColor: strokeColor,
+			fillColor: color,
+			strokeWidth: 1,
+			strokeCap: 'round'
+		};
+
+		path.rotate(45);
+
+		// Create a symbol from the path:
+		var symbol = new paper.Symbol(path);
+		//remove path on stage
+		path.remove();
+
+		return symbol;
 	}
 
  });

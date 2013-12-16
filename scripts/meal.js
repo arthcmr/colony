@@ -9,7 +9,7 @@ var Meal = paper.Base.extend({
 	 * Initialization
 	 */
 
-	initialize: function(options, index) {;
+	initialize: function(options, index, symbol) {;
 		/*
 		 * Default attributes
 		 */
@@ -32,13 +32,11 @@ var Meal = paper.Base.extend({
 		}
 
 		//draw individual
-		this.draw();
+		this.draw(symbol);
 
 	},
 
 	setProperties: function() {
-		this.color = "#fbdb62";
-		this.strokeColor = "#d9bf5a";
 		this.position = false;
 		this.energy = 0.1;
 		this.exists = true;
@@ -49,24 +47,11 @@ var Meal = paper.Base.extend({
 		}
 	},
 
-	draw: function() {
+	draw: function(symbol) {
 
-		this.body = new paper.Path({
-			strokeColor: this.strokeColor,
-			fillColor: this.color,
-			strokeWidth: 1,
-			strokeCap: 'round',
-			opacity: 0.5
-		});
+		this.instance = symbol.place();
+		this.instance.position = this.position;
 
-		var center_x = this.position.x;
-		var center_y = this.position.y;
-
-		this.body.add(new paper.Point(center_x, center_y - 4));
-		this.body.add(new paper.Point(center_x + 4, center_y));
-		this.body.add(new paper.Point(center_x, center_y + 4));
-		this.body.add(new paper.Point(center_x - 4, center_y));
-		this.body.add(new paper.Point(center_x, center_y - 4));
 	},
 
 	setPosition: function (position) {
@@ -101,7 +86,7 @@ var Meal = paper.Base.extend({
 	},
 
 	clear: function() {
-		this.body.opacity = 0;
+		this.instance.remove();
 	},
 
 	_getRandomPoint: function() {
@@ -125,7 +110,7 @@ var Meal = paper.Base.extend({
 	},
 
 	bounds:  function() {
-		return this.body.bounds;
+		return this.instance.bounds;
 	}
 
 });
