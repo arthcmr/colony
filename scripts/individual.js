@@ -51,7 +51,7 @@ var Individual = paper.Base.extend({
 
 		this.force = 0.05;		  							//default speed
 
-		this.max_age = 1;									//max_age
+		this.max_age = 0.1;									//max_age
 
 		this.antibodies = false;							//has antibodies?
 		this.disease = false;								//has disease?
@@ -60,7 +60,7 @@ var Individual = paper.Base.extend({
 		this.poison_lethality = 0.8;						//probability of dying from poison
 		this.poison_lifespan = 0.1;							//reduced lifespan after getting poisoned
 		this.fecundity = 0.1;								//fecundity probability
-		this.mutation_probability = 0.02;					//mutation probability
+		this.mutation_probability = 0.01;					//mutation probability
 		this.initial_energy = 0.5;							//amount of energy
 
 	},
@@ -608,10 +608,22 @@ var Individual = paper.Base.extend({
 		//all properties that must be crossed over
 		dna_properties = [
 			'max_radius',
+			'max_radius',
+			'min_radius',
 			'min_radius',
 			'sight',
+			'sight',
+			'color',
+			'color',
+			'color',
+			'color',
+			'color',
 			'color',
 			'strength',
+			'number_flagellum',
+			'number_flagellum',
+			'number_flagellum',
+			'number_flagellum',
 			'number_flagellum',
 			'force',
 			'max_age',
