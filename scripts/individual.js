@@ -1,3 +1,6 @@
+//hashmap for sin functions (performance)
+var MathSin = {};
+
 /*
  * Individual Object: a living circle that moves around and does amazing things.
  * (extends paper Base object)
@@ -264,6 +267,7 @@ var Individual = paper.Base.extend({
 	/*
 	calculateDistances from every viewable object
 	if force === true, calculate distance from every object in the collection
+	TODO: avoid far objects
 	*/
 	calculateDistances: function(collection, force, ordered) {
 		var distances = {};
@@ -502,7 +506,11 @@ var Individual = paper.Base.extend({
 			this.count += speed * 15;
 			var vector = point.subtract(points[i]);
 			var rotated = lastVector.rotate(90);
-			rotated.length = Math.sin((this.count + i * 3) * 0.003);
+
+			//sin function to calculate rotation
+			var key = this.count + i * 3;
+			rotated.length = this._getRotatedLengthFragellum(key);
+
 			lastVector.length = -1 * pieceLength;
 			point = point.add(lastVector);
 			points[i] = point.add(rotated);
@@ -515,7 +523,8 @@ var Individual = paper.Base.extend({
 		//become meals
 		var area = this.sightRing.bounds;
 		var area2 = this.body.bounds;
-		var num_meals = Math.round(area2.width * area2.height / 100);
+		var x = area2.width * area2.height / 100;
+		var num_meals = ((x >= 0 ? x : -x) + 0.5) >> 0;
 		this.meals.generateMeals(num_meals, area);
 		this.clear();
 	},
@@ -652,13 +661,13 @@ var Individual = paper.Base.extend({
 			var new_value;
 			//only change if mutation condition is satisfied
 			if(sort < _this.mutation_probability) {
-
-				console.log("MUTATED:");
 				//if its a color
 				if(_.isString(value)) {
 					var hex = value.substring(1,7); //get color
 					var number_hex = parseInt(hex, 16); //get corresponding int
-					new_value = Math.round(number_hex * _.random(1,100000) / _.random(1,100000));
+					var x = number_hex * _.random(1,100000) / _.random(1,100000);
+					//replace Math.ceil()
+					new_value = ((x >= 0 ? x : -x) + 0.5) >> 0;
 					new_value = new_value.toString(16); //get new hex
 					new_value = "#" + (("000000" + new_value).slice(-6));
 				}
@@ -677,7 +686,7 @@ var Individual = paper.Base.extend({
 
 					//if property must be an int
 					if(_.indexOf(int_properties, property) !== -1) {
-						new_value = Math.round(new_value);
+						new_value = ((new_value >= 0 ? new_value : -new_value) + 0.5) >> 0;
 					}
 
 				}
@@ -685,8 +694,6 @@ var Individual = paper.Base.extend({
 				else if(_.isBoolean(value)) {
 					new_value = !value;
 				}
-
-				console.log("> "+property+": "+new_value);
 
 			} else {
 				new_value = value;
@@ -929,6 +936,24 @@ var Individual = paper.Base.extend({
 		});
 	},
 
+	_getRotatedLengthFragellum: function(key) {
+		//optimizations
+		var key = key / 100;
+		key = ((key >= 0 ? key : -key) + 0.5) >> 0; //Math.round(key);
+		key = key * 100;
+		if(key > 120000) key = key % 12000;
+
+		if(typeof MathSin[key] !== "undefined") {
+			var sin = MathSin[key];
+			// console.log("cached! "+key);
+		}
+		else {
+			var sin = Math.sin(key * 0.003);
+			MathSin[key] = sin;
+		}
+		return sin;
+	},
+
 
 	setEnergy: function(new_energy) {
 		this.energy = new_energy;
@@ -1012,7 +1037,12 @@ var Individual = paper.Base.extend({
 	},
 
 	_shadeColor: function(color, percent) {   
-	    var num = parseInt(color.slice(1),16), amt = Math.round(255 * percent), R = (num >> 16) + amt, G = (num >> 8 & 0x00FF) + amt, B = (num & 0x0000FF) + amt;
+	    var num = parseInt(color.slice(1),16),
+	    	x = 255 * percent,
+	    	amt = ((x >= 0 ? x : -x) + 0.5) >> 0,
+	    	R = (num >> 16) + amt,
+	    	G = (num >> 8 & 0x00FF) + amt,
+	    	B = (num & 0x0000FF) + amt;
 	    return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
 	},
 
