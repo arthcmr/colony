@@ -75,22 +75,23 @@ var Individual = paper.Base.extend({
 
 		this.alive = true;
 		this.oldColor = this._shadeColor(this.color, 0.3);
-		this.position = false;										//current position (false = random)
-		var randomx = Math.random() * 2 - 1,						//negative and positive vector between -1 and 1
+		this.position = false;	//current position (false = random)
+		var randomx = Math.random() * 2 - 1, //negative and positive vector between -1 and 1
 			randomy = Math.random() * 2 - 1; 
-		this.vector = new paper.Point(randomx, randomy); 			//negative and positive vector between -1 and 1	
-		this.acceleration = new paper.Point();						//current acceleration
-		this.hungry = 0;											//is hungry now?
+		//negative and positive vector between -1 and 1	
+		this.vector = new paper.Point(randomx, randomy);
+		this.acceleration = new paper.Point();		//current acceleration
+		this.hungry = 0;							//is hungry now?
 		this.energy = this.initial_energy + ((Math.random() * 2 - 1) * this.initial_energy / 4); //small variation of approximately +/-12.5%
-		this.age = 0;												//age
-		this.poisoned = false;										//is poisoned now?
-		this.reproducing = false;									//is reproducing now?
-		this.mate = null;											//is reproducing now?
+		this.age = 0;					//age
+		this.poisoned = false;			//is poisoned now?
+		this.reproducing = false;		//is reproducing now?
+		this.mate = null;				//is reproducing now?
 		this.energy_reproduction = 0;
-		this.current_speed = 0; 									//current speed
-		this.memory = [];											//position memory
-		this.current_radius = 0;									//current size
-		this.avoid_collision = true; 								//is currently avoiding collision?
+		this.current_speed = 0; 		//current speed
+		this.memory = [];				//position memory
+		this.current_radius = 0;		//current size
+		this.avoid_collision = true; 	//is currently avoiding collision?
 		this.last_angle = 0;
 		this.sightVisible = true;
 		this.max_speed = this.speed + (this.strength);		//maximum speed
@@ -127,7 +128,6 @@ var Individual = paper.Base.extend({
 		this._setAge();
 
 		//stores important objects that this individual interacts with
-
 		this.population = objects.population;
 		var individuals = this.population.getIndividuals();
 
@@ -269,7 +269,7 @@ var Individual = paper.Base.extend({
 	if force === true, calculate distance from every object in the collection
 	TODO: avoid far objects
 	*/
-	calculateDistances: function(collection, force, ordered) {
+	calculateDistances: function(collection, force) {
 		var distances = {};
 		var _this = this;
 		_.each(collection, function(item, ind) {
@@ -277,11 +277,6 @@ var Individual = paper.Base.extend({
 			if(force === true || _this.intersects(other)) {
 				distances[ind] = other.position.getDistance(_this.position, true);
 			}
-			/* dont need to add distances we dont need
-			else {
-				distances[ind] = Infinity;
-			}
-			*/
 		});
 
 		var ordered_distances = _.map(distances, function(v, k) {
