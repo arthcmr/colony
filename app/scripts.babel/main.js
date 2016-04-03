@@ -9,7 +9,11 @@ let params = {
 
 let scene = new Two(params).appendTo(stage);
 
+initControls();
+
 function start() {
+
+  let stats = initStats();
 
   scene.clear();
   let colony = new Colony(scene, config);

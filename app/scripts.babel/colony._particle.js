@@ -11,7 +11,7 @@
       this.colony = colony;
       Object.assign(options, {
         position: Colony.Utils.getRandomPoint(this.colony.scene),
-        radius: 10,
+        radius: 1,
         color: '#000',
       }, options);
       Object.assign(this, options);
@@ -25,7 +25,9 @@
     }
 
     update() {
-      
+      this.position = [this.position[0], this.position[1] + 2];
+      if(this.position[1] > this.colony.scene.height) this.position[1] = 0;
+      this.symbol.translation.set(this.position[0], this.position[1]);
     }
 
     setPosition(pos) {
