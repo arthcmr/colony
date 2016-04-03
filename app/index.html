@@ -3,7 +3,11 @@
   <head>
     <meta charset="utf-8">
 
+    <title>Colony - a cool simulation</title>
+
+    <!-- Fonts -->
     <link href='https://fonts.googleapis.com/css?family=Roboto:400,500,400italic,300' rel='stylesheet' type='text/css'>
+
     <!-- build:css styles/main.css -->
     <link href="styles/main.css" rel="stylesheet">
     <!-- endbuild -->
@@ -14,12 +18,26 @@
 
     <!-- build:js scripts/vendor.js -->
     <!-- bower:js -->
-
+    <script type="text/javascript" src="../node_modules/dat.gui/build/dat.gui.min.js"></script>
+    <script type="text/javascript" src="../node_modules/stats-js/build/stats.min.js"></script>
+    <script type="text/javascript" src="../node_modules/two.js/build/two.min.js"></script>
     <!-- endbower -->
     <!-- endbuild -->
 
-    <!-- build:js scripts/main.js -->
+    <!-- build:js scripts/colony.js -->
+    <script type="text/javascript" src="scripts/colony.js"></script>
+    <script type="text/javascript" src="scripts/colony._utils.js"></script>
+    <script type="text/javascript" src="scripts/colony._collection.js"></script>
+    <script type="text/javascript" src="scripts/colony._particle.js"></script>
+    <script type="text/javascript" src="scripts/colony._meals.js"></script>
+    <script type="text/javascript" src="scripts/colony._meal.js"></script>
+    <!-- endbuild -->
 
+    <!-- build:js scripts/main.js -->
+    <script type="text/javascript" src="scripts/config.js"></script>
+    <script type="text/javascript" src="scripts/controls.js"></script>
+    <script type="text/javascript" src="scripts/stats.js"></script>
+    <script type="text/javascript" src="scripts/main.js"></script>
     <!-- endbuild -->
   </body>
 </html>
