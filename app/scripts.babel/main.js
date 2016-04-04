@@ -4,7 +4,7 @@
 let stage = document.getElementById('colony');
 let params = {
   fullscreen: true,
-  type: Two.Types.svg
+  type: Two.Types.webgl
 };
 
 let scene = new Two(params).appendTo(stage);

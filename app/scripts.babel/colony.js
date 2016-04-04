@@ -9,8 +9,8 @@
     constructor(scene, config) {
       Object.assign(this, { scene, config });
       this.objects = {
-        // population: [],
-        meals: new Colony.Meals({}, this)
+        meals: new Colony.Meals({}, this),
+        population: new Colony.Population({}, this)
       };
 
       this.draw();

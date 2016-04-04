@@ -9,7 +9,7 @@
   class Meals extends Colony.Collection {
     constructor(options, colony) {
 
-      Object.assign(options, {
+      options = Object.assign({
         meals: colony.config.food
       }, options);
 

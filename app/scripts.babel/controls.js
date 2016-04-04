@@ -8,15 +8,27 @@ function initControls () {
 
   let f0 = gui.addFolder('GENERAL');
   f0.add(config, 'population', 0, 100).step(1);
-  f0.add(config, 'food', 0, 200).step(1);
+  f0.add(config, 'food', 0, 1000).step(1);
 
   f0.open();
 
   let f1 = gui.addFolder('INDIVIDUAL FEATURES');
-  f1.add(config, 'ind_size', 1, 100).step(1);
-  f1.add(config, 'ind_sight', 1, 100).step(1);
-  f1.addColor(config, 'ind_color');
+  f1.add(config, 'ind_minSize', 1, 100).step(1);
+  f1.add(config, 'ind_maxSize', 1, 100).step(1);
+  f1.add(config, 'ind_energy', 0, 1).step(0.01);
+  f1.add(config, 'ind_sight', 1, 200).step(1);
   f1.add(config, 'ind_flagellum', 1, 7).step(1);
+  f1.add(config, 'ind_strength', 0, 1).step(0.01);
+  f1.add(config, 'ind_force', 0, 0.1).step(0.01);
+  f1.add(config, 'ind_maxAge', 0, 1).step(0.01);
+  f1.add(config, 'ind_memorySize', 0, 10).step(1);
+  f1.add(config, 'ind_fecundity', 0, 1).step(0.01);
+  f1.add(config, 'ind_mutation', 0, 1).step(0.01);
+  f1.addColor(config, 'ind_color');
+
+  let f2 = gui.addFolder('FOOD');
+  f2.add(config, 'food_energy', 0.01, 1).step(0.01);
+  f2.add(config, 'food_clusters', 0, 4).step(1);
 
   gui.add(config, 'RESTART');
 }
