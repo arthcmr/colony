@@ -40,6 +40,10 @@
       return this.collection[index];
     }
 
+    has(item) {
+      return this.collection.indexOf(item) !== -1;
+    }
+
     remove(index) {
       this.collection[index].remove();
       delete this.collection[index];

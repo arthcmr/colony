@@ -57,6 +57,9 @@
     pointSubtract: function(p1, p2) {
       return [p1[0] - p2[0], p1[1] - p2[1]];
     },
+    pointDistance: function(p1,p2) {
+      return Math.sqrt((p1[0]-p2[0])*(p1[0]-p2[0]) + (p1[1]-p2[1])*(p1[1]-p2[1]));
+    },
     pointLength: function(p) {
       return Math.sqrt(p[0]*p[0] + p[1]*p[1]);
     },

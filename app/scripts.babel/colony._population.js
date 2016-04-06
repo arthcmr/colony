@@ -16,9 +16,14 @@
       super(options, colony);
       
       for(let i=0; i<this.population; i++) {
-        let ind = new Colony.Individual({}, this.colony);
-        ind.index = this.add(ind);
+        this.createIndividual({});
       }
+    }
+
+    createIndividual(properties) {
+      let ind = new Colony.Individual(properties, this.colony);
+      ind.index = this.add(ind);
+      return ind;
     }
 
     update() {
