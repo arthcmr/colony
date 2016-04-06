@@ -12,11 +12,13 @@ var Individual = paper.Base.extend({
 	 * Initialization
 	 */
 
-	initialize: function(options, index) {;
+	initialize: function(options, index, config) {;
 		/*
 		 * Default attributes
 		 */
 	 	//innate
+	 	this.config = config;
+
 	 	if(_.isNumber(index)) {
 	 		this.index = index;
 	 		this.generateProperties();
@@ -42,26 +44,26 @@ var Individual = paper.Base.extend({
 
 	generateProperties: function() {
 
-		this.max_radius = 25;		  						//initial size
-		this.min_radius = 10;		  						//initial size
-		this.sight = 40;		  							//initial sight radius
-		this.color = '#0066cc'; 							//initial color of SIM
-		this.strength = 0.25;		 		//initial strength
-		this.number_flagellum = _.random(1,2);		  					//default speed
+		this.max_radius = this.config.ind_maxSize || 25;		  						//initial size
+		this.min_radius = this.config.ind_minSize || 10;		  						//initial size
+		this.sight = this.config.ind_sight || 40;		  							//initial sight radius
+		this.color = this.config.ind_color || '#0066cc'; 							//initial color of SIM
+		this.strength = this.config.ind_strength || 0.25;		 		//initial strength
+		this.number_flagellum = _.random(1,(this.config.ind_flagellum || 2));		  					//default speed
 
-		this.force = 0.05;		  							//default speed
+		this.force = this.config.ind_force|| 0.05;		  							//default speed
 
-		this.max_age = 0.1;									//max_age
+		this.max_age = this.config.ind_maxAge || 0.1;									//max_age
 
 		this.antibodies = false;							//has antibodies?
 		this.disease = false;								//has disease?
-		this.memory_size = 3;								//size of memory
+		this.memory_size = this.config.ind_memorySize || 3;								//size of memory
 		this.intoxication = 0.8;							//probability of being intoxicated
 		this.poison_lethality = 0.8;						//probability of dying from poison
 		this.poison_lifespan = 0.1;							//reduced lifespan after getting poisoned
-		this.fecundity = 0.1;								//fecundity probability
-		this.mutation_probability = 0.01;					//mutation probability
-		this.initial_energy = 0.5;							//amount of energy
+		this.fecundity = this.config.ind_fecundity || 0.1;								//fecundity probability
+		this.mutation_probability = this.config.ind_mutation || 0.01;					//mutation probability
+		this.initial_energy = this.config.ind_energy || 0.5;							//amount of energy
 
 	},
 

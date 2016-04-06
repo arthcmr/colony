@@ -16,14 +16,15 @@
 	 * Initialization
 	 */
 
-	initialize: function(options, stage) {
+	initialize: function(options, stage, config) {
 
 	 	var settings = {
-			initial_number: 100
+			initial_number: config.food
 		};
 		_.extend(settings, options);
 
 		this.stage = stage;
+		this.config = config;
 
 		this.generateMeals(settings.initial_number);
 
@@ -44,7 +45,7 @@
 			this.symbol = this._getSymbol();
 		}
 
-		var meal = new Meal(properties, this.max_id, this.symbol);
+		var meal = new Meal(properties, this.max_id, this.symbol, this.config);
 		//add it to the collection
 		this.collection[this.max_id] = meal;
 		//increase the id
@@ -106,8 +107,8 @@
 	_getSymbol: function() {
 
 		//drawing symbol
-		var color = "#f6e6aa";
-		var strokeColor = "#e9ddad";
+		var color = this.config.food_color || "#f6e6aa";
+		var strokeColor = this.config.food_stroke || "#e9ddad";
 
 		var rectangle = new paper.Rectangle(new paper.Point(-3, -3), new paper.Size(6, 6));
 		var path = new paper.Path.Rectangle(rectangle);

@@ -9,11 +9,13 @@ var Meal = paper.Base.extend({
 	 * Initialization
 	 */
 
-	initialize: function(options, index, symbol) {;
+	initialize: function(options, index, symbol, config) {;
 		/*
 		 * Default attributes
 		 */
 	 	//innate
+	 	this.config = config;
+
 	 	if(_.isNumber(index)) {
 	 		this.index = index;
 	 		this.setProperties();
@@ -38,7 +40,7 @@ var Meal = paper.Base.extend({
 
 	setProperties: function() {
 		this.position = false;
-		this.energy = 0.1;
+		this.energy = this.config.food_energy || 0.1;
 		this.exists = true;
 
 		//set random position if none is defined

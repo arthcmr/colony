@@ -14,10 +14,12 @@
 	 * Initialization
 	 */
 
-	initialize: function(options, stage) {
+	initialize: function(options, stage, config) {
+
+		this.config = config;
 
 	 	var settings = {
-			initial_number: 10
+			initial_number: this.config.population
 		};
 		_.extend(settings, options);
 
@@ -38,7 +40,7 @@
 
 		if(_.isUndefined(properties)) properties = {};
 
-		var individual = new Individual(properties, this.max_id);
+		var individual = new Individual(properties, this.max_id, this.config);
 		//add it to the collection
 		this.collection[this.max_id] = individual;
 		//increase the id

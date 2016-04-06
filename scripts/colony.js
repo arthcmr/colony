@@ -23,7 +23,7 @@ var Colony = paper.Base.extend({
 	 * Initialization
 	 */
 
-	initialize: function(options) {
+	initialize: function(options, config) {
 
 		console.log("============== INITIALIZING ==============");
 
@@ -36,10 +36,10 @@ var Colony = paper.Base.extend({
 		this.stage = new Stage(settings.stages);
 
 		//create meals collection
-		this.objects.meals = new Meals({}, this.stage);
+		this.objects.meals = new Meals({}, this.stage, config);
 
 		//create population
-		this.objects.population = new Population({}, this.stage);
+		this.objects.population = new Population({}, this.stage, config);
 
 		console.log("================ RUNNING ================");
 
@@ -76,6 +76,12 @@ var Colony = paper.Base.extend({
 
 	_resize: function() {
 		//this will be triggered whenever the window is resized
+	},
+
+	clear: function() {
+		this.stage.null;
+		this.objects.meals = null;
+		this.objects.population = null;
 	}
 
 
