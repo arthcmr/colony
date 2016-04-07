@@ -6,8 +6,8 @@ var Config = function Config(cb) {
   var _this = this;
 
   //GENERAL
-  this.population = 0;
-  this.food = 0;
+  this.population = 5;
+  this.food = 100;
 
   //INDIVIDUAL
   this.ind_minSize = 10;
